@@ -6,8 +6,8 @@ html(lang="en")
         title Noom
         link(rel="stylesheet", href="https://unpkg.com/mvp.css")
     body 
-        header
-            h1 Noom 
+        header 
+            h1 Noom for teacher
         main
             div#welcome
                 form
@@ -20,6 +20,5 @@ html(lang="en")
                     button#camera Turn camera off
                     select#cameras
                         option(value="device")
-                    video#peersFace(autoplay,playsinline, width="400", heigth="400")
-        script(src="/socket.io/socket.io.js")    
-        script(src="/public/js/app.js")
+        script(src="/socket.io/socket.io.js")
+        script(src="/public/js/app_teacher.js")
