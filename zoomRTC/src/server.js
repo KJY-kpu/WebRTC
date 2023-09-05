@@ -50,6 +50,7 @@ const createTeacherPc = (teacherSocket) => {
   });
 
   pc.onicecandidate = (e) => {
+    console.log("I sent ice");
     teacherSocket.emit("ice", e.candidate);
   };
 
@@ -65,7 +66,7 @@ const createTeacherPc = (teacherSocket) => {
   pc.addEventListener("addstream", (data) => {
     console.log("addstream");
     const spcList = studentPc.values();
-    for(let spc of spcList) {
+    for (let spc of spcList) {
       spc.addTrack(data.stream);
     }
   });
@@ -90,6 +91,7 @@ const createStudentPc = (studentSocket) => {
   });
 
   pc.onicecandidate = (e) => {
+    console.log("I sent ice");
     studentSocket.emit("ice", e.candidate);
   };
 
@@ -108,18 +110,23 @@ wsServer.on("connection", socket => {
     socket.emit("welcome");
   });
   socket.on("offerteacher", async (offer) => {
+    console.log("start offerteacher");
     try {
       teacherPc = createTeacherPc(socket);
+      console.log("created pc");
     } catch (e) { console.log(e); }
     teacherPc.setRemoteDescription(offer);
+    console.log("set remotedDescription");
     const answer = await teacherPc.createAnswer({
       offerToReceiveAudio: true,
       offerToReceivevideo: true,
     });
+    console.log("created answer");
 
     teacherPc.setLocalDescription(answer);
+    console.log("set localDescription");
     socket.emit("answer", answer);
-    console.log("i got offer and send answer / offer is ", offer, " / answer is ", answer);
+
   });
 
   socket.on("offerstudent", async () => {
@@ -139,10 +146,14 @@ wsServer.on("connection", socket => {
 
   socket.on("ice", (ice, role) => {
     if (role === 0) {
-      if (ice) teacherPc.addIceCandidate(
-        new wrtc.RTCIceCandidate(ice)
-      );
-      console.log("i got ice");
+      if (ice) {
+        teacherPc.addIceCandidate(
+          new wrtc.RTCIceCandidate(ice)
+        );
+        console.log("i got ice");
+      }
+      else console.log("i got null ice", ice);
+      
     }
     else {
       if (ice) studentPc.get(socket).addIceCandidate(
