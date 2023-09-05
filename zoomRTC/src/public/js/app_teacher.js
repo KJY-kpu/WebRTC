@@ -116,17 +116,8 @@ welcomeForm.addEventListener("submit", handleWelcomeSubmit);
 socket.on("welcome", async () => {
     const offer = await myPeerConnection.createOffer();
     myPeerConnection.setLocalDescription(offer);
-    socket.emit("offer", offer, 0);
+    socket.emit("offerteacher", offer);
     console.log("sent my offer!")
-});
-
-socket.on("offer", async (offer) => {
-    myPeerConnection.setRemoteDescription(offer);
-    const answer = await myPeerConnection.createAnswer();
-    console.log(answer);
-    myPeerConnection.setLocalDescription(answer);
-    socket.emit("answer", answer, roomName);
-    console.log("received answer!");
 });
 
 socket.on("answer", answer => {
@@ -136,7 +127,7 @@ socket.on("answer", answer => {
 
 socket.on("ice", ice => {
     myPeerConnection.addIceCandidate(ice);
-    console.log("received candidate");
+    console.log("i got ice", ice);
 });
 
 // RTC code
