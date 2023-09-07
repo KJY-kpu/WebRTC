@@ -71,6 +71,7 @@ const createTeacherPc = (teacherSocket) => {
     switch (pc.connectionState) {
       case "disconnected" :
         teacherStream = null;
+        teacherPc = null;
         for(let spc of studentPc.values()) {
           for(let sender of spc.getSenders()) spc.removeTrack(sender);
         }
@@ -81,6 +82,7 @@ const createTeacherPc = (teacherSocket) => {
           for(let spc of studentPc.values()) {
             teacherStream.getTracks().forEach(track => spc.addTrack(track, teacherStream));
           }
+          reConnection = 0;
           
         }
         else {
