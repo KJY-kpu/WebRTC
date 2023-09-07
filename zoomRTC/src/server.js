@@ -22,17 +22,12 @@ app.get("/*", (req, res) => res.redirect("/"));
 
 const handleListen = () => console.log('Listening on http://localhost:3000');
 
-// async function init() {
-//   teacherPc = new wrtc.RTCPeerConnection();
-
-//   studentPc = new Map();
-// }
-// await init();
-
 let teacherPc;
 let teacherStream;
+let teacherSenders = {};
 let studentPc = new Map();
-let users = {};
+let room;
+let reConnection = 0;
 
 const createTeacherPc = (teacherSocket) => {
   const pc = new wrtc.RTCPeerConnection({
@@ -61,15 +56,42 @@ const createTeacherPc = (teacherSocket) => {
   pc.ontrack = (e) => {
     console.log("input stream in ts ", e.streams[0]);
     teacherStream = e.streams[0];
+    teacherSenders = pc.getSenders();
+    if(reConnection === 1) {
+      console.log("try to reconnecting");
+      for(let spc of studentPc.values()) {
+        teacherStream.getTracks().forEach(track => spc.addTrack(track, teacherStream));
+      }
+    reConnection = 0;
+    }
   };
 
-  pc.addEventListener("addstream", (data) => {
-    console.log("addstream");
-    const spcList = studentPc.values();
-    for (let spc of spcList) {
-      spc.addTrack(data.stream);
+  pc.onconnectionstatechange = (e) => {
+    console.log("tpc has changed", pc.connectionState);
+    switch (pc.connectionState) {
+      case "disconnected" :
+        teacherStream = null;
+        for(let spc of studentPc.values()) {
+          for(let sender of spc.getSenders()) spc.removeTrack(sender);
+        }
+        reConnection = 1;
+        break;
+      case "connected" :
+        if(reConnection === 1) {
+          for(let spc of studentPc.values()) {
+            teacherStream.getTracks().forEach(track => spc.addTrack(track, teacherStream));
+          }
+          
+        }
+        else {
+          for(let sSocket of studentPc.keys()) {
+            sSocket.emit("welcome");
+          }
+        }
+        break;
+      
     }
-  });
+  }
 
   return pc;
 
@@ -100,15 +122,22 @@ const createStudentPc = (studentSocket) => {
   };
   console.log("stream is " + teacherStream);
 
-  teacherStream.getTracks().forEach(track => pc.addTrack(track, teacherStream));
+  if (teacherStream) teacherStream.getTracks().forEach(track => pc.addTrack(track, teacherStream));
 
   return pc;
 }
 
 wsServer.on("connection", socket => {
   socket.on("join_room", async (roomName) => {
+    room = roomName;
+    socket.join(roomName);
     socket.emit("welcome");
   });
+  socket.on('join_roomstudent', async (roomName) => {
+    room = roomName;
+    socket.join(roomName);
+    if(teacherStream) socket.emit("welcome");
+  })
   socket.on("offerteacher", async (offer) => {
     console.log("start offerteacher");
     try {
@@ -152,8 +181,10 @@ wsServer.on("connection", socket => {
         );
         console.log("i got ice");
       }
-      else console.log("i got null ice", ice);
-      
+      else {
+        console.log("i got null ice", ice);
+      }
+
     }
     else {
       if (ice) studentPc.get(socket).addIceCandidate(

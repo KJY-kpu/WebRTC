@@ -6,6 +6,7 @@ call.hidden = true;
 
 let roomName;
 let myPeerConnection;
+let joined = 0;
 
 // Welcome Form (join room)-------------------------------
 const welcome = document.getElementById("welcome");
@@ -21,7 +22,7 @@ async function handleWelcomeSubmit(event) {
     event.preventDefault();
     const input = welcomeForm.querySelector("input");
     await initCall();
-    socket.emit("join_room", input.value);
+    socket.emit("join_roomstudent", input.value);
     roomName = input.value;
     input.value = "";
 }
@@ -31,7 +32,11 @@ welcomeForm.addEventListener("submit", handleWelcomeSubmit);
 // Socket code
 
 socket.on("welcome", () => {
-    socket.emit("offerstudent");
+    console.log("i got welcome");
+    if(joined === 0) {
+        joined = 1;
+        socket.emit("offerstudent");
+    }
 });
 
 socket.on("offer", async (offer) => {
