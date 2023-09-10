@@ -7,10 +7,13 @@ call.hidden = true;
 let roomName;
 let myPeerConnection;
 let joined = 0;
+let muted = true;
+let audioTracks;
 
 // Welcome Form (join room)-------------------------------
 const welcome = document.getElementById("welcome");
 const welcomeForm = welcome.querySelector("form");
+const peersFace = document.getElementById("peersFace");
 
 async function initCall() {
     welcome.hidden = true;
@@ -25,6 +28,17 @@ async function handleWelcomeSubmit(event) {
     socket.emit("join_roomstudent", input.value);
     roomName = input.value;
     input.value = "";
+}
+
+function handleMuteClick() {
+    audioTracks.forEach((track) => (track.enabled = !track.enabled));
+    if (!muted) {
+        muteBtn.innerText = "Unmute";
+        muted = true;
+    } else {
+        muteBtn.innerText = "Mute";
+        muted = false;
+    }
 }
 
 welcomeForm.addEventListener("submit", handleWelcomeSubmit);
@@ -52,6 +66,14 @@ socket.on("ice", ice => {
     console.log("i got ice");
 });
 
+socket.on("reconnect", () => {
+    myPeerConnection.close();
+    join = 0;
+    makeConnection();
+    socket.emit("offerstudent");
+
+})
+
 // RTC code
 
 function makeConnection() {
@@ -70,7 +92,7 @@ function makeConnection() {
             ]
         });
         myPeerConnection.addEventListener("icecandidate", handleIce);
-        myPeerConnection.addEventListener("addstream", handleAddStream);
+        myPeerConnection.addEventListener("track", handleAddTrack);
 
     } catch (e) { console.log(e); }
 
@@ -82,8 +104,11 @@ function handleIce(data) {
     console.log("sent my candidate");
 }
 
-function handleAddStream(data) {
-    const peersFace = document.getElementById("peersFace");
-    console.log(data.stream);
-    peersFace.srcObject = data.stream;
+function handleAddTrack(data) {
+
+    
+    console.log(data.streams[0]);
+    
+    peersFace.srcObject = data.streams[0];
+    peersFace.muted = true;
 }

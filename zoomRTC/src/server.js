@@ -25,9 +25,11 @@ const handleListen = () => console.log('Listening on http://localhost:3000');
 let teacherPc;
 let teacherStream;
 let teacherSenders = {};
-let studentPc = new Map();
-let room;
+let studentPc = new Map();    //소켓, peerConnection 쌍
 let reConnection = 0;
+let room;
+
+//---선생 RTCPeerConnection 정의
 
 const createTeacherPc = (teacherSocket) => {
   const pc = new wrtc.RTCPeerConnection({
@@ -45,7 +47,7 @@ const createTeacherPc = (teacherSocket) => {
   });
 
   pc.onicecandidate = (e) => {
-    console.log("I sent ice");
+    // console.log("I sent ice");
     teacherSocket.emit("ice", e.candidate);
   };
 
@@ -57,47 +59,53 @@ const createTeacherPc = (teacherSocket) => {
     console.log("input stream in ts ", e.streams[0]);
     teacherStream = e.streams[0];
     teacherSenders = pc.getSenders();
-    if(reConnection === 1) {
-      console.log("try to reconnecting");
-      for(let spc of studentPc.values()) {
-        teacherStream.getTracks().forEach(track => spc.addTrack(track, teacherStream));
-      }
-    reConnection = 0;
-    }
   };
 
   pc.onconnectionstatechange = (e) => {
     console.log("tpc has changed", pc.connectionState);
     switch (pc.connectionState) {
-      case "disconnected" :
+      case "disconnected":
+        if(teacherPc) teacherPc.close();
         teacherStream = null;
         teacherPc = null;
-        for(let spc of studentPc.values()) {
-          for(let sender of spc.getSenders()) spc.removeTrack(sender);
-        }
         reConnection = 1;
         break;
-      case "connected" :
-        if(reConnection === 1) {
-          for(let spc of studentPc.values()) {
-            teacherStream.getTracks().forEach(track => spc.addTrack(track, teacherStream));
+      case "failed":
+        if(teacherPc) teacherPc.close();
+        teacherStream = null;
+        teacherPc = null;
+        reConnection = 1;
+        break;
+      case "connected":
+        if (reConnection === 1) {
+          console.log("reconnecting");
+
+          studentPc.forEach( spc => {
+            spc.close();
+          });
+
+          for(let sSock of studentPc.keys()) {
+            sSock.emit("reconnect");
           }
           reConnection = 0;
-          
         }
-        else {
-          for(let sSocket of studentPc.keys()) {
-            sSocket.emit("welcome");
-          }
+
+        console.log("sent welcome to students");
+        
+        for(let sSock of studentPc.keys()) {
+          sSock.emit("welcome");
         }
+
         break;
-      
+
     }
   }
 
   return pc;
 
 }
+
+//---학생 RTCPeerConnection 정의
 
 const createStudentPc = (studentSocket) => {
   const pc = new wrtc.RTCPeerConnection({
@@ -115,19 +123,20 @@ const createStudentPc = (studentSocket) => {
   });
 
   pc.onicecandidate = (e) => {
-    console.log("I sent ice");
+    // console.log("I sent ice");
     studentSocket.emit("ice", e.candidate);
   };
 
   pc.oniceconnectionstatechange = (e) => {
     //console.log(e);
   };
-  console.log("stream is " + teacherStream);
 
   if (teacherStream) teacherStream.getTracks().forEach(track => pc.addTrack(track, teacherStream));
 
   return pc;
 }
+
+//---소켓 통신
 
 wsServer.on("connection", socket => {
   socket.on("join_room", async (roomName) => {
@@ -138,7 +147,8 @@ wsServer.on("connection", socket => {
   socket.on('join_roomstudent', async (roomName) => {
     room = roomName;
     socket.join(roomName);
-    if(teacherStream) socket.emit("welcome");
+    studentPc.set(socket, null);
+    if (teacherStream) socket.emit("welcome");
   })
   socket.on("offerteacher", async (offer) => {
     console.log("start offerteacher");
@@ -181,10 +191,10 @@ wsServer.on("connection", socket => {
         teacherPc.addIceCandidate(
           new wrtc.RTCIceCandidate(ice)
         );
-        console.log("i got ice");
+        // console.log("i got ice");
       }
       else {
-        console.log("i got null ice", ice);
+        // console.log("i got null ice", ice);
       }
 
     }
@@ -192,7 +202,7 @@ wsServer.on("connection", socket => {
       if (ice) studentPc.get(socket).addIceCandidate(
         new wrtc.RTCIceCandidate(ice)
       );
-      console.log("i got ice");
+      // console.log("i got ice");
     }
   });
 })
