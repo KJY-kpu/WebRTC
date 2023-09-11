@@ -3,9 +3,11 @@ import http from "http";
 import { WebSocketServer } from "ws";
 import SocketIO from "socket.io";
 import e from "express";
+import { start } from "repl";
 
-
-let wrtc = require("wrtc");
+const fs = require('fs');
+const path = require('path');
+const wrtc = require("wrtc");
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -22,13 +24,40 @@ app.get("/student", (req, res) => res.render("home_student"));
 
 const handleListen = () => console.log('Listening on http://localhost:3000');
 
+let writeStream;
+
 let teacherPc;
 let teacherStream;
 let teacherSenders = {};
 let studentPc = new Map();    //소켓, peerConnection 쌍
 let reConnection = 0;
 let room;
+let chunkNumber = 0;
 let chunks = [];
+
+function saveChunkToDisk(chunk) {
+  const filePath = path.join(__dirname + '/data', `chunk_${chunkNumber++}.dat`);
+  fs.writeFileSync(filePath, chunk);
+
+}
+
+function readChunkFromDisk(startChunkNumber, endChunkNumber) {
+  let chunks = [];
+  console.log("readChunk num is ", startChunkNumber, " end is ", endChunkNumber);
+  for (let i = startChunkNumber; i < endChunkNumber; i++) {
+    const filePath = path.join(__dirname + '/data', `chunk_${i}.dat`);
+
+    try {
+      const chunk = fs.readFileSync(filePath);
+      const blobData = new Blob([chunk], { type: 'application/octet-stream' });
+      chunks.push(blobData);
+    } catch (error) {
+      console.error(`조각 ${chunkNumber}을 읽을 수 없습니다.`);
+    }
+  }
+
+  return chunks;
+}
 
 //---선생 RTCPeerConnection 정의
 
@@ -66,13 +95,13 @@ const createTeacherPc = (teacherSocket) => {
     console.log("tpc has changed", pc.connectionState);
     switch (pc.connectionState) {
       case "disconnected":
-        if(teacherPc) teacherPc.close();
+        if (teacherPc) teacherPc.close();
         teacherStream = null;
         teacherPc = null;
         reConnection = 1;
         break;
       case "failed":
-        if(teacherPc) teacherPc.close();
+        if (teacherPc) teacherPc.close();
         teacherStream = null;
         teacherPc = null;
         reConnection = 1;
@@ -81,19 +110,19 @@ const createTeacherPc = (teacherSocket) => {
         if (reConnection === 1) {
           console.log("reconnecting");
 
-          studentPc.forEach( spc => {
+          studentPc.forEach(spc => {
             spc.close();
           });
 
-          for(let sSock of studentPc.keys()) {
+          for (let sSock of studentPc.keys()) {
             sSock.emit("reconnect");
           }
           reConnection = 0;
         }
 
         console.log("sent welcome to students");
-        
-        for(let sSock of studentPc.keys()) {
+
+        for (let sSock of studentPc.keys()) {
           sSock.emit("welcome");
         }
 
@@ -140,17 +169,20 @@ const createStudentPc = (studentSocket) => {
 //---소켓 통신
 
 wsServer.on("connection", socket => {
+
   socket.on("join_room", async (roomName) => {
     room = roomName;
     socket.join(roomName);
     socket.emit("welcome");
   });
+
   socket.on('join_roomstudent', async (roomName) => {
     room = roomName;
     socket.join(roomName);
     studentPc.set(socket, null);
     if (teacherStream) socket.emit("welcome");
-  })
+  });
+
   socket.on("offerteacher", async (offer) => {
     console.log("start offerteacher");
     try {
@@ -171,6 +203,7 @@ wsServer.on("connection", socket => {
 
   });
 
+
   socket.on("offerstudent", async () => {
     try {
       studentPc.set(socket, createStudentPc(socket));
@@ -184,7 +217,7 @@ wsServer.on("connection", socket => {
   socket.on("answerstudent", (answer) => {
     studentPc.get(socket).setRemoteDescription(answer);
     console.log("i got answer from studnet");
-  })
+  });
 
   socket.on("ice", (ice, role) => {
     if (role === 0) {
@@ -207,15 +240,19 @@ wsServer.on("connection", socket => {
     }
   });
 
-  socket.on("push", (chunk) => {
+  socket.on("push", async (chunk) => {
     chunks.push(chunk);
+    // let blob = new Blob([chunk], { type: "video/mp4" });
+    // let arrayBuffer = await blob.arrayBuffer();
+    // saveChunkToDisk(chunk);
   });
 
-  socket.on("pull", async () => {
-    let blob = new Blob(chunks, { type: "video\/mp4" });
+  socket.on("pull", async (startChunkNumber) => {
+    startChunkNumber *= 1;
+    // let blob = new Blob(readChunkFromDisk(startChunkNumber, startChunkNumber + 5), { type: "video/mp4" });
+    let blob = new Blob(chunks, { type: "video/mp4" });
     let arrBuffer = await blob.arrayBuffer();
     socket.emit("blob", arrBuffer);
-    console.log("sent blob : ", blob);
   });
 })
 

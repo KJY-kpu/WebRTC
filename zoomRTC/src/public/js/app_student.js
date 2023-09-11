@@ -10,12 +10,16 @@ let joined = 0;
 let muted = true;
 let audioTracks;
 let chunks = [];
+let playBackTime = 0;
+let blobQueue = [];
+let played = 0;
 
 // Welcome Form (join room)-------------------------------
 const welcome = document.getElementById("welcome");
 const welcomeForm = welcome.querySelector("form");
 const peersFace = document.getElementById("peersFace");
 const testFace = document.getElementById("testFace");
+const playBackForm = document.getElementById("playBack");
 
 async function initCall() {
     welcome.hidden = true;
@@ -43,14 +47,35 @@ function handleMuteClick() {
     }
 }
 
-function handlePlayBack() {
-    socket.emit("pull");
-    console.log("click playback");
+function handlePlayBack(event) {
+    event.preventDefault();
+    const input = playBack.querySelector("input");
+    playBackTime = input.value;
+    socket.emit("pull", playBackTime);
+    playBackTime = playBackTime + 5;
+    // displayBlob(blobQueue.shift());
+
+}
+
+function displayBlob(blob) {
+    console.log("display function : ", blob);
+    const url = URL.createObjectURL(blob);
+    testFace.src = url;
 }
 
 
 welcomeForm.addEventListener("submit", handleWelcomeSubmit);
-playBack.addEventListener("click", handlePlayBack);
+playBackForm.addEventListener("submit", handlePlayBack);
+// testFace.addEventListener("ended", () => {
+//     console.log("ended event on!");
+//     if (blobQueue.length < 3) {
+//         console.log("pulling");
+//         socket.emit("pull", playBackTime);
+//         playBackTime = playBackTime + 5;
+//     }
+//     displayBlob(blobQueue.shift());
+
+// });
 
 // Socket code
 
@@ -84,12 +109,19 @@ socket.on("reconnect", () => {
 });
 
 socket.on("blob", (data) => {
-    console.log("is it?");
+    // const blob = new Blob([data], { type: "video\/mp4" });
+    // blobQueue.push(blob);
+    // console.log("i got blob : ", blob);
+    // if(played === 0) {
+    //     displayBlob(blob);
+    //     played = 1;
+    // }
     const blob = new Blob([data], { type: "video\/mp4" });
     console.log(blob);
     const url = URL.createObjectURL(blob);
     testFace.src = url;
     console.log("url : ", url);
+
 });
 
 // RTC code

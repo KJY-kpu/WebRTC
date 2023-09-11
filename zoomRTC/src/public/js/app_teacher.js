@@ -177,7 +177,7 @@ function makeConnection() {
     mediaRecorder.onstop = (e) => {
         console.log("data available after MediaRecorder.stop() called.");
         
-        resultBlob = new Blob(chunks, { type: "video\/mp4" });
+        resultBlob = new Blob(chunks, { type: "video/mp4" });
         arrBuffer = resultBlob.arrayBuffer();
         
         console.log("recorder stopped");
