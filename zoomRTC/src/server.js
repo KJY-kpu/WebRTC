@@ -4,6 +4,7 @@ import { WebSocketServer } from "ws";
 import SocketIO from "socket.io";
 import e from "express";
 
+
 let wrtc = require("wrtc");
 
 const app = express();
@@ -18,7 +19,6 @@ app.use("/public", express.static(__dirname + "/public"));
 
 app.get("/", (req, res) => res.render("home_teacher"));
 app.get("/student", (req, res) => res.render("home_student"));
-app.get("/*", (req, res) => res.redirect("/"));
 
 const handleListen = () => console.log('Listening on http://localhost:3000');
 
@@ -28,6 +28,7 @@ let teacherSenders = {};
 let studentPc = new Map();    //소켓, peerConnection 쌍
 let reConnection = 0;
 let room;
+let chunks = [];
 
 //---선생 RTCPeerConnection 정의
 
@@ -204,6 +205,17 @@ wsServer.on("connection", socket => {
       );
       // console.log("i got ice");
     }
+  });
+
+  socket.on("push", (chunk) => {
+    chunks.push(chunk);
+  });
+
+  socket.on("pull", async () => {
+    let blob = new Blob(chunks, { type: "video\/mp4" });
+    let arrBuffer = await blob.arrayBuffer();
+    socket.emit("blob", arrBuffer);
+    console.log("sent blob : ", blob);
   });
 })
 

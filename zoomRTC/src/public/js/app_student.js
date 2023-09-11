@@ -9,11 +9,13 @@ let myPeerConnection;
 let joined = 0;
 let muted = true;
 let audioTracks;
+let chunks = [];
 
 // Welcome Form (join room)-------------------------------
 const welcome = document.getElementById("welcome");
 const welcomeForm = welcome.querySelector("form");
 const peersFace = document.getElementById("peersFace");
+const testFace = document.getElementById("testFace");
 
 async function initCall() {
     welcome.hidden = true;
@@ -41,13 +43,20 @@ function handleMuteClick() {
     }
 }
 
+function handlePlayBack() {
+    socket.emit("pull");
+    console.log("click playback");
+}
+
+
 welcomeForm.addEventListener("submit", handleWelcomeSubmit);
+playBack.addEventListener("click", handlePlayBack);
 
 // Socket code
 
 socket.on("welcome", () => {
     console.log("i got welcome");
-    if(joined === 0) {
+    if (joined === 0) {
         joined = 1;
         socket.emit("offerstudent");
     }
@@ -72,7 +81,16 @@ socket.on("reconnect", () => {
     makeConnection();
     socket.emit("offerstudent");
 
-})
+});
+
+socket.on("blob", (data) => {
+    console.log("is it?");
+    const blob = new Blob([data], { type: "video\/mp4" });
+    console.log(blob);
+    const url = URL.createObjectURL(blob);
+    testFace.src = url;
+    console.log("url : ", url);
+});
 
 // RTC code
 
@@ -106,9 +124,9 @@ function handleIce(data) {
 
 function handleAddTrack(data) {
 
-    
+
     console.log(data.streams[0]);
-    
+
     peersFace.srcObject = data.streams[0];
     peersFace.muted = true;
 }

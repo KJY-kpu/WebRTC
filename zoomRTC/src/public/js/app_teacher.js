@@ -1,10 +1,12 @@
 const socket = io();
 
+
 const myFace = document.getElementById("myFace");
 const muteBtn = document.getElementById("mute");
 const cameraBtn = document.getElementById("camera");
 const camerasSelect = document.getElementById("cameras");
 const call = document.getElementById("call");
+
 
 call.hidden = true;
 
@@ -13,6 +15,23 @@ let muted = false;
 let cameraOff = false;
 let roomName;
 let myPeerConnection;
+let chunks = [];
+let mediaRecorder;
+let arrBuffer;
+let resultBlob;
+
+// setTimeout(() => {
+//     mediaRecorder.stop();
+
+// }, 7000)
+
+// setTimeout(() => {
+//     const testFace = document.getElementById("testFace");
+//     const newBlob = new Blob([arrBuffer]);
+//     const url = URL.createObjectURL(resultBlob);
+//     testFace.src = url;
+
+// }, 9000)
 
 async function getCamears() {
     try {
@@ -79,8 +98,8 @@ async function handleCameraChange() {
     if (myPeerConnection) {
         const videoTrack = myStream.getVideoTracks()[0];
         const videoSender = myPeerConnection
-          .getSenders()
-          .find((sender) => sender.track.kind === "video");
+            .getSenders()
+            .find((sender) => sender.track.kind === "video");
         videoSender.replaceTrack(videoTrack);
     }
 }
@@ -148,6 +167,28 @@ function makeConnection() {
     });
     myPeerConnection.addEventListener("icecandidate", handleIce);
     myStream.getTracks().forEach(track => myPeerConnection.addTrack(track, myStream));
+
+    mediaRecorder = new MediaRecorder(myStream);
+
+    mediaRecorder.start(1000);
+    console.log(mediaRecorder.state);
+    console.log("recorder started");
+
+    mediaRecorder.onstop = (e) => {
+        console.log("data available after MediaRecorder.stop() called.");
+        
+        resultBlob = new Blob(chunks, { type: "video\/mp4" });
+        arrBuffer = resultBlob.arrayBuffer();
+        
+        console.log("recorder stopped");
+    };
+
+    mediaRecorder.ondataavailable = (e) => {
+        socket.emit("push", e.data);
+        console.log("emit chunk : ", e.data);
+        //chunks.push(e.data);
+    };
+
     //각 비디오, 오디오 트랙을 잡아서 RTCPeerConnection에 집어넣음
 }
 

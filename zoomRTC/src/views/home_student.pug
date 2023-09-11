@@ -16,5 +16,9 @@ html(lang="en")
             div#call
                 div#myStream
                     video#peersFace(autoplay,playsinline, width="400", heigth="400")
+                    button#playBack playback
+            div#test
+                div#testStream
+                    video#testFace(autoplay,playsinline, width="400", heigth="400")
         script(src="/socket.io/socket.io.js")    
         script(src="/public/js/app_student.js")
