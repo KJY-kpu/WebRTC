@@ -10,9 +10,9 @@ let joined = 0;
 let muted = true;
 let audioTracks;
 let chunks = [];
-let playBackTime = 0;
+let playBackTime = Number(0);
 let blobQueue = [];
-let played = 0;
+let played = false;
 
 // Welcome Form (join room)-------------------------------
 const welcome = document.getElementById("welcome");
@@ -47,12 +47,12 @@ function handleMuteClick() {
     }
 }
 
-function handlePlayBack(event) {
+async function handlePlayBack(event) {
     event.preventDefault();
     const input = playBack.querySelector("input");
     playBackTime = input.value;
-    socket.emit("pull", playBackTime);
-    playBackTime = playBackTime + 5;
+    await socket.emit("pull", playBackTime);
+    playBackTime = Number(playBackTime) + Number(5);
     // displayBlob(blobQueue.shift());
 
 }
@@ -66,16 +66,23 @@ function displayBlob(blob) {
 
 welcomeForm.addEventListener("submit", handleWelcomeSubmit);
 playBackForm.addEventListener("submit", handlePlayBack);
-// testFace.addEventListener("ended", () => {
-//     console.log("ended event on!");
-//     if (blobQueue.length < 3) {
-//         console.log("pulling");
-//         socket.emit("pull", playBackTime);
-//         playBackTime = playBackTime + 5;
-//     }
-//     displayBlob(blobQueue.shift());
+testFace.addEventListener("ended", async () => {
+    console.log("ended event on!");
+    // if (blobQueue.length < 3) {
+    //     console.log("pulling");
+    //     await socket.emit("pull", playBackTime);
+    //     playBackTime = playBackTime + 5;
+    // }
+    displayBlob(blobQueue.shift());
 
-// });
+});
+
+setInterval( () => {
+    if(blobQueue.length < 3 && played) {
+        socket.emit("pull", playBackTime);
+        playBackTime = Number(playBackTime) + Number(5);
+    }
+}, 3000);
 
 // Socket code
 
@@ -109,18 +116,18 @@ socket.on("reconnect", () => {
 });
 
 socket.on("blob", (data) => {
-    // const blob = new Blob([data], { type: "video\/mp4" });
-    // blobQueue.push(blob);
-    // console.log("i got blob : ", blob);
-    // if(played === 0) {
-    //     displayBlob(blob);
-    //     played = 1;
-    // }
     const blob = new Blob([data], { type: "video\/mp4" });
-    console.log(blob);
-    const url = URL.createObjectURL(blob);
-    testFace.src = url;
-    console.log("url : ", url);
+    blobQueue.push(blob);
+    console.log("i got blob : ", blob);
+    if(played === false) {
+        displayBlob(blob);
+        played = true;
+    }
+    // const blob = new Blob([data], { type: "video\/mp4" });
+    // console.log(blob);
+    // const url = URL.createObjectURL(blob);
+    // testFace.src = url;
+    // console.log("url : ", url);
 
 });
 

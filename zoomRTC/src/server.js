@@ -34,6 +34,7 @@ let reConnection = 0;
 let room;
 let chunkNumber = 0;
 let chunks = [];
+let header;
 
 function saveChunkToDisk(chunk) {
   const filePath = path.join(__dirname + '/data', `chunk_${chunkNumber++}.dat`);
@@ -241,18 +242,20 @@ wsServer.on("connection", socket => {
   });
 
   socket.on("push", async (chunk) => {
-    chunks.push(chunk);
-    // let blob = new Blob([chunk], { type: "video/mp4" });
-    // let arrayBuffer = await blob.arrayBuffer();
-    // saveChunkToDisk(chunk);
+    //chunks.push(chunk);
+    if(header === undefined) {
+      header = chunk;
+      console.log(header);
+    }
+    else saveChunkToDisk(chunk);
+    
   });
 
   socket.on("pull", async (startChunkNumber) => {
     startChunkNumber *= 1;
-    // let blob = new Blob(readChunkFromDisk(startChunkNumber, startChunkNumber + 5), { type: "video/mp4" });
-    let test = chunks.slice(5, 15);
-    test.unshift(chunks[0]);
-    let blob = new Blob(test, { type: "video/mp4" });
+    let readChunk = readChunkFromDisk(startChunkNumber, startChunkNumber + 5);
+    readChunk.unshift(header);
+    let blob = new Blob(readChunk, { type: "video/mp4" });
     let arrBuffer = await blob.arrayBuffer();
     socket.emit("blob", arrBuffer);
   });

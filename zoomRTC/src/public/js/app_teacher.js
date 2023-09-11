@@ -19,6 +19,7 @@ let chunks = [];
 let mediaRecorder;
 let arrBuffer;
 let resultBlob;
+let first = 0;
 
 // setTimeout(() => {
 //     mediaRecorder.stop();
@@ -176,17 +177,25 @@ function makeConnection() {
 
     mediaRecorder.onstop = (e) => {
         console.log("data available after MediaRecorder.stop() called.");
-        
+
         resultBlob = new Blob(chunks, { type: "video/mp4" });
         arrBuffer = resultBlob.arrayBuffer();
-        
+
         console.log("recorder stopped");
     };
 
-    mediaRecorder.ondataavailable = (e) => {
-        socket.emit("push", e.data);
-        console.log("emit chunk : ", e.data);
-        //chunks.push(e.data);
+    mediaRecorder.ondataavailable = async (e) => {
+        if (first === 0) {
+            await socket.emit("push", e.data.slice(0, 1000));
+            socket.emit("push", e.data.slice(1001,));
+            first = 1;
+        }
+        else {
+            socket.emit("push", e.data);
+            console.log("emit chunk : ", e.data);
+        }
+
+
     };
 
     //각 비디오, 오디오 트랙을 잡아서 RTCPeerConnection에 집어넣음
