@@ -250,7 +250,9 @@ wsServer.on("connection", socket => {
   socket.on("pull", async (startChunkNumber) => {
     startChunkNumber *= 1;
     // let blob = new Blob(readChunkFromDisk(startChunkNumber, startChunkNumber + 5), { type: "video/mp4" });
-    let blob = new Blob(chunks, { type: "video/mp4" });
+    let test = chunks.slice(5, 15);
+    test.unshift(chunks[0]);
+    let blob = new Blob(test, { type: "video/mp4" });
     let arrBuffer = await blob.arrayBuffer();
     socket.emit("blob", arrBuffer);
   });
