@@ -32,33 +32,6 @@ let teacherSenders = {};
 let studentPc = new Map();    //소켓, peerConnection 쌍
 let reConnection = 0;
 let room;
-let chunkNumber = 0;
-let chunks = [];
-let header;
-
-function saveChunkToDisk(chunk) {
-  const filePath = path.join(__dirname + '/data', `chunk_${chunkNumber++}.dat`);
-  fs.writeFileSync(filePath, chunk);
-
-}
-
-function readChunkFromDisk(startChunkNumber, endChunkNumber) {
-  let chunks = [];
-  console.log("readChunk num is ", startChunkNumber, " end is ", endChunkNumber);
-  for (let i = startChunkNumber; i < endChunkNumber; i++) {
-    const filePath = path.join(__dirname + '/data', `chunk_${i}.dat`);
-
-    try {
-      const chunk = fs.readFileSync(filePath);
-      const blobData = new Blob([chunk], { type: 'application/octet-stream' });
-      chunks.push(blobData);
-    } catch (error) {
-      console.error(`조각 ${chunkNumber}을 읽을 수 없습니다.`);
-    }
-  }
-
-  return chunks;
-}
 
 //---선생 RTCPeerConnection 정의
 
@@ -171,6 +144,11 @@ const createStudentPc = (studentSocket) => {
 
 wsServer.on("connection", socket => {
 
+  socket.on("test", () => {
+    console.log("test on!");
+    socket.emit("test");
+  })
+
   socket.on("join_room", async (roomName) => {
     room = roomName;
     socket.join(roomName);
@@ -239,25 +217,6 @@ wsServer.on("connection", socket => {
       );
       // console.log("i got ice");
     }
-  });
-
-  socket.on("push", async (chunk) => {
-    //chunks.push(chunk);
-    if(header === undefined) {
-      header = chunk;
-      console.log(header);
-    }
-    else saveChunkToDisk(chunk);
-    
-  });
-
-  socket.on("pull", async (startChunkNumber) => {
-    startChunkNumber *= 1;
-    let readChunk = readChunkFromDisk(startChunkNumber, startChunkNumber + 5);
-    readChunk.unshift(header);
-    let blob = new Blob(readChunk, { type: "video/mp4" });
-    let arrBuffer = await blob.arrayBuffer();
-    socket.emit("blob", arrBuffer);
   });
 })
 
