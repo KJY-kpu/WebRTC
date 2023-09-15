@@ -6,7 +6,6 @@ const cameraBtn = document.getElementById("camera");
 const camerasSelect = document.getElementById("cameras");
 const call = document.getElementById("call");
 
-
 call.hidden = true;
 
 let myStream;
@@ -35,16 +34,20 @@ async function getCamears() {
 }
 
 async function getMedia(deviceId) {
-    const initialConstrains = {
-        audio: true,
-        video: { facingMode: "user" },
-    };
-    const cameraConstrains = {
-        audio: true,
-        video: { deviceId: { exact: deviceId } },
-    }
+    // const initialConstrains = {
+    //     audio: true,
+    //     video: { facingMode: "user" },
+    // };
+    // const cameraConstrains = {
+    //     audio: true,
+    //     video: { deviceId: { exact: deviceId } },
+    // };
+    const DEFAULT_CONSTRAINTS = Object.freeze({
+        audio: true, 
+        video: { width: 640, height: 480 }
+      });
     try {
-        myStream = await navigator.mediaDevices.getUserMedia(deviceId ? cameraConstrains : initialConstrains);
+        myStream = await navigator.mediaDevices.getUserMedia(DEFAULT_CONSTRAINTS);
         myFace.srcObject = myStream;
         if (!deviceId) {
             await getCamears();

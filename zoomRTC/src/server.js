@@ -4,17 +4,7 @@ import { WebSocketServer } from "ws";
 import SocketIO from "socket.io";
 import e from "express";
 import { start } from "repl";
-import {
-  Device,
-  RTCRtpCodecParameters,
-  useAbsSendTime,
-  useFIR,
-  useNACK,
-  usePLI,
-  useREMB,
-  useSdesMid,
-  MediaStreamTrack,
-} from "msc-node";
+import * as mediasoupClient from "mediasoup-client";
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;
 
@@ -27,7 +17,12 @@ const wrtc = require("wrtc");
 
 const app = express();
 const httpServer = http.createServer(app);
-const wsServer = SocketIO(httpServer);
+const wsServer = SocketIO(httpServer, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
 
 app.set("view engine", "pug");
 app.set("views", __dirname + "/views");
@@ -166,11 +161,6 @@ const createStudentPc = (studentSocket) => {
 
 wsServer.on("connection", socket => {
 
-  socket.on("test", () => {
-    console.log("test on!");
-    socket.emit("test");
-  })
-
   socket.on("join_room", async (roomName) => {
     room = roomName;
     socket.join(roomName);
@@ -239,6 +229,10 @@ wsServer.on("connection", socket => {
       );
       // console.log("i got ice");
     }
+  });
+
+  socket.on("device", (device) => {
+    teacherDevice = new mediasoup.Device(device);
   });
 })
 
@@ -330,24 +324,10 @@ const handleRouterRtpCapabilitiesRequest = async (jsonMessage) => {
   console.log('handleRouterRtpCapabilities() [rtpCapabilities:%o]', routerRtpCapabilities);
 
   try {
-    // const device = new mediasoup.Device();
-    const device = new Device({
-      headerExtensions: {
-        video: [useSdesMid(), useAbsSendTime()],
-      },
-      codecs: {
-        video: [
-          new RTCRtpCodecParameters({
-            mimeType: "video/VP8",
-            clockRate: 90000,
-            payloadType: 98,
-            rtcpFeedback: [useFIR(), useNACK(), usePLI(), useREMB()],
-          }),
-        ],
-      },
-    });
-    // Load the mediasoup device with the router rtp capabilities gotten from the server
-    await device.load({ routerRtpCapabilities });
+    const device = teacherDevice;
+    console.log("디바이스 : ", device);
+    var caps = { rtpCapabilities: [routerRtpCapabilities]};
+    await device.load({ caps });
 
     peer = new Peer(sessionId, device, teacherStream);
     createTransport();
@@ -394,12 +374,23 @@ const handleSendTransportListeners = () => {
   peer.sendTransport.on('produce', handleTransportProduceEvent);
   peer.sendTransport.on('connectionstatechange', connectionState => {
     console.log('send transport connection state change [state:%s]', connectionState);
+    if(connectionState === 'connected') {
+      
+      setTimeout(() => {
+        console.log("스타트레코드");
+        socket.send(JSON.stringify({
+          action: 'start-record',
+          sessionId: peer.sessionId,
+        }));
+      
+      },5000);
+    }
   });
 };
 
 const getMediaStream = async () => {
   const mediaStream = teacherStream;
-  
+
   // Get the video and audio tracks from the media stream
   const videoTrack = mediaStream.getVideoTracks()[0];
   console.log("비디오트랙 : ", videoTrack);
@@ -419,7 +410,7 @@ const getMediaStream = async () => {
   }
 
   // Enable the start record button
-  document.getElementById('startRecordButton').disabled = false;
+  // document.getElementById('startRecordButton').disabled = false;
 };
 
 const handleConnectTransportRequest = async (jsonMessage) => {
@@ -506,26 +497,3 @@ function socketEvent() {
   socket.addEventListener('close', handleSocketClose);
 }
 
-module.exports.startRecord = () => {
-  console.log('startRecord()');
-
-  socket.send(JSON.stringify({
-    action: 'start-record',
-    sessionId: peer.sessionId,
-  }));
-
-  document.getElementById('startRecordButton').disabled = true;
-  document.getElementById('stopRecordButton').disabled = false;
-};
-
-module.exports.stopRecord = () => {
-  console.log('stopRecord()');
-
-  socket.send(JSON.stringify({
-    action: 'stop-record',
-    sessionId: peer.sessionId
-  }));
-
-  document.getElementById('startRecordButton').disabled = false;
-  document.getElementById('stopRecordButton').disabled = true;
-};
